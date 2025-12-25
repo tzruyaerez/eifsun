@@ -3,123 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ניהול ציוד ואחסון</title>
+    <title>ניהול קשר מסונכרן</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; padding: 20px; direction: rtl; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a365d; }
-        
-        input#search { 
-            width: 100%; padding: 15px; font-size: 18px; border: 2px solid #cbd5e0; 
-            border-radius: 10px; box-sizing: border-box; margin-bottom: 20px; outline: none;
-        }
-
-        .item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #edf2f7; }
-        .item-content { flex: 1; display: flex; justify-content: space-between; align-items: center; margin-right: 12px; }
-        .item-name { font-weight: 600; font-size: 17px; }
-        .item-code { font-family: monospace; font-weight: bold; color: #e53e3e; background: #fff5f5; padding: 3px 8px; border-radius: 5px; }
-        
-        /* עיצוב פריט מאוחסן */
-        .completed { background-color: #f0fff4; }
-        .completed .item-name { text-decoration: line-through; color: #a0aec0; }
-
-        /* פופ-אפ מרכזי */
-        #modalOverlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;
-        }
-        .modal-box { 
-            background: white; padding: 25px; border-radius: 15px; text-align: center; 
-            width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
-        }
-        .modal-box p { font-size: 19px; font-weight: bold; margin-bottom: 25px; color: #2d3748; line-height: 1.4; }
-        .btn-group { display: flex; gap: 12px; justify-content: center; }
-        button { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
-        .btn-confirm { background: #3182ce; color: white; }
-        .btn-cancel { background: #edf2f7; color: #4a5568; }
+        body { font-family: system-ui, sans-serif; background: #f0f2f5; padding: 20px; direction: rtl; text-align: center; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 15px; font-size: 18px; border: 2px solid #1a365d; border-radius: 8px; box-sizing: border-box; margin-bottom: 20px; }
+        .item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .item-name { font-weight: bold; flex: 1; text-align: right; margin-right: 10px; }
+        .item-code { color: red; font-family: monospace; font-weight: bold; }
+        .completed { background-color: #d4edda; }
+        .completed .item-name { text-decoration: line-through; color: #666; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-box { background: white; padding: 25px; border-radius: 12px; width: 85%; max-width: 350px; }
+        .loader { margin: 20px; font-weight: bold; color: #1a365d; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📋 ניהול אחסון ציוד</h2>
+    <h2>📋 ניהול אחסון מסונכרן</h2>
     <input type="text" id="search" placeholder="חפשי שם או מספר..." oninput="filter()">
+    <div id="loading" class="loader">טוען נתונים מהענן...</div>
     <div id="list"></div>
 </div>
 
-<div id="modalOverlay">
+<div id="modal">
     <div class="modal-box">
-        <p id="modalMsg"></p>
-        <div class="btn-group">
-            <button class="btn-confirm" id="confirmBtn">כן, בטוח</button>
-            <button class="btn-cancel" onclick="closeModal()">ביטול</button>
-        </div>
+        <p id="modalText"></p>
+        <button onclick="confirmAction()" style="background:#1a365d; color:white; padding:10px 20px; border:none; border-radius:5px; cursor:pointer;">כן</button>
+        <button onclick="closeModal()" style="padding:10px 20px; border:none; border-radius:5px; cursor:pointer;">ביטול</button>
     </div>
 </div>
 
 <script>
-    const data = [
-        {n: "מ.ק מגד", c: "537519"}, {n: "מ.ק קשר מגד", c: "492333"}, {n: "אולר מגד", c: "102311404"},
-        {n: "מקמש טנק מגד", c: "529297"}, {n: "מדיה מקמש טנק מגד", c: "1106568"}, {n: "אלעד ירוק טנק מגד", c: "487826"},
-        {n: "מדיה אלעד ירוק טנק מגד", c: "1114587"}, {n: "סיאף טנק מגד", c: "989526"}, {n: "מבן טנק מגד", c: "763927"},
-        {n: "טל 88 טנק מגד", c: "352699"}, {n: "סיאף רנגלר מגד", c: "779099"}, {n: "מקמש רנגלר מגד", c: "805330"},
-        {n: "מדיה מקמש רנגלר מגד", c: "1107456"}, {n: "טל 88 רנגלר מגד", c: "350758"}, {n: "משיב מיקום רנגלר מגד", c: "545636"},
-        {n: "מ.ק סמגד", c: "493980"}, {n: "מ.ק קשר סמגד", c: "808412"}, {n: "אולר סמגד", c: "102312089"},
-        {n: "סלולר צבאי סמגד", c: "550028"}, {n: "מקמש טנק סמגד", c: "530691"}, {n: "מדיה מקמש טנק סמגד", c: "1113894"},
-        {n: "אלעד ירוק טנק סמגד", c: "484359"}, {n: "מדיה אלעד ירוק טנק סמגד", c: "1114773"}, {n: "סיאף טנק סמגד", c: "319853"},
-        {n: "מבן טנק סמגד", c: "763735"}, {n: "טל 88 טנק סמגד", c: "352803"}, {n: "סיאף רנגלר סמגד", c: "777711"},
-        {n: "מקמש רנגלר סמגד", c: "805744"}, {n: "מדיה מקמש רנגלר סמגד", c: "1113998"}, {n: "טל 88 רנגלר סמגד", c: "352569"}
-    ];
+  
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxquT6dWEhKwvG9h9xA5exXiiezrKnIHbQqH3Q1jdluMuCOCBHcuh6OYKQIRYfYWOq5/exec';
 
-    const listContainer = document.getElementById('list');
-    let activeCB = null;
-    let activeRowId = "";
+    let itemsData = [];
+    let currentItem = null;
 
-    // יצירת הרשימה
-    data.forEach((item, i) => {
-        const div = document.createElement('div');
-        div.className = 'item';
-        div.id = 'row-' + i;
-        div.innerHTML = `
-            <input type="checkbox" onclick="handleToggle(this, 'row-${i}')">
-            <div class="item-content">
-                <span class="item-name">${item.n}</span>
-                <span class="item-code">${item.c}</span>
-            </div>
-        `;
-        listContainer.appendChild(div);
-    });
-
-    function handleToggle(cb, rowId) {
-        const targetState = cb.checked;
-        cb.checked = !targetState; // מבטל שינוי מיידי עד האישור
-        
-        activeCB = cb;
-        activeRowId = rowId;
-        
-        const overlay = document.getElementById('modalOverlay');
-        const msg = document.getElementById('modalMsg');
-        
-        msg.innerText = targetState ? "האם ברצונך לאפסן את הפריט?" : "האם ברצונך להוציא את הפריט מאחסון?";
-        overlay.style.display = 'flex';
-
-        document.getElementById('confirmBtn').onclick = function() {
-            activeCB.checked = targetState;
-            const row = document.getElementById(activeRowId);
-            if (targetState) row.classList.add('completed');
-            else row.classList.remove('completed');
-            closeModal();
-        };
+    async function loadData() {
+        try {
+            const response = await fetch(scriptURL);
+            itemsData = await response.json();
+            renderList();
+            document.getElementById('loading').style.display = 'none';
+        } catch (e) {
+            document.getElementById('loading').innerText = 'שגיאה בטעינת נתונים';
+        }
     }
 
-    function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
-
-    function filter() {
+    function renderList() {
+        const list = document.getElementById('list');
+        list.innerHTML = '';
         const term = document.getElementById('search').value.toLowerCase();
-        document.querySelectorAll('.item').forEach(el => {
-            el.style.display = el.innerText.toLowerCase().includes(term) ? 'flex' : 'none';
+        
+        itemsData.forEach((item, i) => {
+            if (item.n.toLowerCase().includes(term) || item.c.toLowerCase().includes(term)) {
+                const div = document.createElement('div');
+                div.className = 'item' + (item.s ? ' completed' : '');
+                div.innerHTML = `
+                    <input type="checkbox" ${item.s ? 'checked' : ''} onclick="askConfirm(${i})">
+                    <div class="item-name">${item.n}</div>
+                    <div class="item-code">${item.c}</div>
+                `;
+                list.appendChild(div);
+            }
         });
     }
+
+    function askConfirm(index) {
+        currentItem = itemsData[index];
+        const modal = document.getElementById('modal');
+        const txt = document.getElementById('modalText');
+        txt.innerText = currentItem.s ? "האם ברצונך להוציא את הפריט מאחסון?" : "האם ברצונך לאפסן את הפריט?";
+        modal.style.display = 'flex';
+        renderList(); 
+    }
+
+    async function confirmAction() {
+        closeModal();
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').innerText = 'מעדכן ענן...';
+        
+        const newStatus = !currentItem.s;
+        await fetch(scriptURL, {
+            method: 'POST',
+            body: JSON.stringify({ name: currentItem.n, status: newStatus })
+        });
+        
+        await loadData();
+    }
+
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function filter() { renderList(); }
+
+    loadData();
 </script>
 
 </body>
